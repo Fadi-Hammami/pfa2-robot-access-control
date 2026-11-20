@@ -1,0 +1,12 @@
+# Dépendances Python (Raspberry Pi OS, Python 3.11+)
+opencv-contrib-python>=4.8   # contient cv2.face (LBPH) — pas opencv-python seul
+numpy>=1.24
+flask>=3.0
+pyserial>=3.5
+RPi.GPIO>=0.7                # préinstallé sur Raspberry Pi OS
+
+# picamera2 s'installe avec apt, pas avec pip :
+#   sudo apt install -y python3-picamera2
+#
+# Installation :
+#   pip install -r requirements.txt --break-system-packages

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contrôle d'Accès — Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#21253a;
+  --border:#2a2d3e;--text:#e2e8f0;--muted:#64748b;
+  --green:#22c55e;--red:#ef4444;--orange:#f97316;
+  --blue:#3b82f6;--amber:#f59e0b;
+  --green-bg:rgba(34,197,94,.12);--red-bg:rgba(239,68,68,.12);
+  --orange-bg:rgba(249,115,22,.12);--blue-bg:rgba(59,130,246,.12);
+  --amber-bg:rgba(245,158,11,.12);
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;height:56px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo h1{font-size:15px;font-weight:600}
+.logo p{font-size:11px;color:var(--muted)}
+.hdr-r{display:flex;align-items:center;gap:16px}
+#dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px}
+#dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
+#dot.off{background:var(--red)}
+#srv{font-size:12px;color:var(--muted)}
+#clk{font-family:monospace;font-size:13px;color:var(--muted)}
+
+/* TABS */
+.tabs{display:flex;gap:4px;padding:12px 20px 0;border-bottom:1px solid var(--border)}
+.tab{padding:8px 18px;border-radius:6px 6px 0 0;border:1px solid transparent;
+  font-size:13px;cursor:pointer;color:var(--muted);background:transparent;
+  border-bottom:none;margin-bottom:-1px;transition:all .2s}
+.tab.active{background:var(--surface);border-color:var(--border);
+  border-bottom:1px solid var(--surface);color:var(--text)}
+.tab:hover:not(.active){color:var(--text)}
+.page{display:none}.page.active{display:block}
+
+/* MAIN GRID */
+.grid{display:grid;grid-template-columns:1fr 320px;gap:14px;
+  padding:14px 20px;max-width:1400px;margin:0 auto}
+
+/* STATS */
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.scard{background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.scard-icon{width:38px;height:38px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:17px}
+.scard.tot .scard-icon{background:var(--blue-bg)}
+.scard.auth .scard-icon{background:var(--green-bg)}
+.scard.den  .scard-icon{background:var(--red-bg)}
+.scard.unk  .scard-icon{background:var(--orange-bg)}
+.scard-val{font-size:22px;font-weight:700;line-height:1}
+.scard.tot  .scard-val{color:var(--blue)}
+.scard.auth .scard-val{color:var(--green)}
+.scard.den  .scard-val{color:var(--red)}
+.scard.unk  .scard-val{color:var(--orange)}
+.scard-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* PANELS */
+.panel{background:var(--surface);border:1px solid var(--border);
+  border-radius:11px;overflow:hidden}
+.ph{padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.ph-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+.badge-live{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;
+  background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);
+  animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+#stream{width:100%;display:block;background:#000;min-height:300px}
+
+/* STATUS */
+#status-box{padding:18px;text-align:center;border-bottom:1px solid var(--border);transition:background .3s}
+.s-icon{font-size:36px;display:block;margin-bottom:8px}
+.s-nom{font-size:18px;font-weight:700;margin-bottom:3px}
+.s-type{font-size:11px;color:var(--muted);text-transform:uppercase}
+.s-heure{font-size:11px;color:var(--muted);margin-top:6px;font-family:monospace}
+.bg-auto{background:var(--green-bg)} .bg-ref{background:var(--red-bg)}
+.bg-unk{background:var(--orange-bg)} .bg-wait{background:transparent}
+
+/* PERSONS */
+.pers-sec{padding:10px 14px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:6px;font-weight:600}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:500}
+.tag.a{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.tag.d{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+
+/* NOTIFICATIONS */
+.notif-panel{grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden}
+#notif-list{max-height:200px;overflow-y:auto;padding:8px}
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;
+  border-radius:8px;margin-bottom:6px;border:1px solid transparent}
+.notif-item.success{background:var(--green-bg);border-color:rgba(34,197,94,.2)}
+.notif-item.danger{background:var(--red-bg);border-color:rgba(239,68,68,.2)}
+.notif-item.info{background:var(--blue-bg);border-color:rgba(59,130,246,.2)}
+.notif-item.warning{background:var(--amber-bg);border-color:rgba(245,158,11,.2)}
+.notif-titre{font-size:13px;font-weight:600;margin-bottom:2px}
+.notif-corps{font-size:12px;color:var(--muted);line-height:1.45}
+.notif-heure{font-size:11px;color:var(--muted);font-family:monospace;margin-left:auto;flex-shrink:0}
+#notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+
+/* LOGS */
+.log-panel{grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden}
+#log-wrap{overflow-x:auto;max-height:260px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:rgba(255,255,255,.03);padding:9px 14px;text-align:left;
+  font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:600;position:sticky;top:0}
+tbody td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.sbadge{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600}
+.sbadge.AUTORISE{background:var(--green-bg);color:var(--green)}
+.sbadge.REFUSE{background:var(--red-bg);color:var(--red)}
+.sbadge.ALERTE{background:var(--orange-bg);color:var(--orange)}
+.sbadge.ADMIN_ACCEPTE,.sbadge.ADMIN_ACCEPTÉ{background:var(--blue-bg);color:var(--blue)}
+.sbadge.ADMIN_REFUSE,.sbadge.ADMIN_REFUSÉ{background:var(--amber-bg);color:var(--amber)}
+
+/* ADMIN PAGE */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  padding:16px 20px;max-width:1000px;margin:0 auto}
+.admin-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:11px;overflow:hidden}
+.admin-body{padding:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  font-size:13px;cursor:pointer;transition:all .15s;width:100%;justify-content:center;
+  margin-bottom:8px}
+.btn:hover{background:var(--border)}
+.btn:active{transform:scale(.98)}
+.btn-green{background:var(--green-bg);border-color:rgba(34,197,94,.4);color:var(--green)}
+.btn-green:hover{background:rgba(34,197,94,.2)}
+.btn-red{background:var(--red-bg);border-color:rgba(239,68,68,.4);color:var(--red)}
+.btn-red:hover{background:rgba(239,68,68,.2)}
+.btn-blue{background:var(--blue-bg);border-color:rgba(59,130,246,.4);color:var(--blue)}
+.btn-blue:hover{background:rgba(59,130,246,.2)}
+.btn-orange{background:var(--orange-bg);border-color:rgba(249,115,22,.4);color:var(--orange)}
+.btn-orange:hover{background:rgba(249,115,22,.2)}
+.progress-bar{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin:10px 0}
+.progress-fill{height:100%;background:var(--blue);border-radius:4px;transition:width .3s}
+.status-msg{font-size:12px;padding:10px 12px;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border);margin-top:10px;
+  min-height:38px;color:var(--muted);word-break:break-word}
+.btn-clear{font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer}
+.btn-clear:hover{background:var(--surface2)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div>
+      <h1>Contrôle d'Accès</h1>
+      <p>Reconnaissance Faciale · ENIT · Fadi Hammemi</p>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span><span id="dot"></span><span id="srv">Connexion...</span></span>
+    <span id="clk">--:--:--</span>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('dashboard')">🖥 Dashboard</button>
+  <button class="tab" onclick="switchTab('admin')">⚙️ Administration</button>
+</div>
+
+<!-- ══════════ PAGE DASHBOARD ══════════ -->
+<div id="page-dashboard" class="page active">
+<div class="grid">
+  <div class="stats">
+    <div class="scard tot"><div class="scard-icon">📊</div>
+      <div><div class="scard-val" id="s-tot">0</div><div class="scard-lbl">Tentatives</div></div></div>
+    <div class="scard auth"><div class="scard-icon">✅</div>
+      <div><div class="scard-val" id="s-auth">0</div><div class="scard-lbl">Autorisés</div></div></div>
+    <div class="scard den"><div class="scard-icon">⛔</div>
+      <div><div class="scard-val" id="s-den">0</div><div class="scard-lbl">Refusés</div></div></div>
+    <div class="scard unk"><div class="scard-icon">❓</div>
+      <div><div class="scard-val" id="s-unk">0</div><div class="scard-lbl">Inconnus</div></div></div>
+  </div>
+
+  <div class="panel" style="display:flex;flex-direction:column">
+    <div class="ph">
+      <div class="ph-title">📷 Flux en Direct <span class="badge-live">● LIVE</span></div>
+    </div>
+    <img id="stream" src="/video_feed" alt="Flux vidéo">
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div class="panel">
+      <div class="ph"><div class="ph-title">⚡ Dernière Décision</div></div>
+      <div id="status-box" class="bg-wait">
+        <span class="s-icon" id="s-ico">🔵</span>
+        <div class="s-nom" id="s-nom">En attente</div>
+        <div class="s-type" id="s-type">Aucun visage détecté</div>
+        <div class="s-heure" id="s-heure">--:--:--</div>
+      </div>
+      <div class="pers-sec">
+        <div class="sec-title">✅ Autorisées</div>
+        <div class="tag-list" id="list-auth"><span style="color:var(--muted);font-size:11px">—</span></div>
+      </div>
+      <div class="pers-sec" style="border-bottom:none">
+        <div class="sec-title">⛔ Refusées</div>
+        <div class="tag-list" id="list-den"><span style="color:var(--muted);font-size:11px">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notif-panel">
+    <div class="ph">
+      <div class="ph-title">🔔 Notifications</div>
+      <button class="btn-clear" onclick="clearNotifs()">Effacer</button>
+    </div>
+    <div id="notif-list">
+      <div id="notif-empty">Aucune notification.</div>
+    </div>
+  </div>
+
+  <div class="log-panel">
+    <div class="ph">
+      <div class="ph-title">📋 Journal des accès</div>
+      <span style="font-size:11px;color:var(--muted)">Auto-refresh 5s</span>
+    </div>
+    <div id="log-wrap">
+      <div id="log-empty" style="padding:30px;text-align:center;color:var(--muted);font-size:13px">Chargement...</div>
+      <table id="log-tbl" style="display:none">
+        <thead><tr><th>#</th><th>Horodatage</th><th>Nom</th><th>Statut</th><th>Confiance</th></tr></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════ PAGE ADMINISTRATION ══════════ -->
+<div id="page-admin" class="page">
+<div class="admin-grid">
+
+  <!-- CAPTURE -->
+  <div class="admin-card">
+    <div class="ph"><div class="ph-title">📸 Capture de Visages</div></div>
+    <div class="admin-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        Enregistrez un nouveau visage directement depuis le navigateur. La caméra du Raspberry capturera les photos.
+      </p>
+      <div class="field">
+        <label>Nom de la personne</label>
+        <input type="text" id="cap-nom" placeholder="ex: Mohamed">
+      </div>
+      <div class="field">
+        <label>Type d'accès</label>
+        <select id="cap-type">
+          <option value="authorized">✅ Autorisée</option>
+          <option value="denied">⛔ Refusée</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nombre de photos : <span id="cap-obj-val">50</span></label>
+        <input type="range" id="cap-obj" min="20" max="100" value="50"
+               oninput="document.getElementById('cap-obj-val').textContent=this.value"
+               style="width:100%;margin-top:6px">
+      </div>
+
+      <div class="progress-bar" id="cap-progress-bar" style="display:none">
+        <div class="progress-fill" id="cap-fill" style="width:0%"></div>
+      </div>
+      <div id="cap-counter" style="font-size:12px;color:var(--muted);text-align:center;display:none">
+        0 / 50
+      </div>
+
+      <button class="btn btn-green" id="btn-start-cap" onclick="startCapture()">▶ Démarrer la capture</button>
+      <button class="btn btn-blue" id="btn-snap" onclick="snapCapture()" disabled>📷 Capturer une photo</button>
+      <button class="btn btn-orange" id="btn-auto" onclick="toggleAuto()" disabled>⏱ Auto-capture (1/s)</button>
+      <button class="btn btn-red" id="btn-stop-cap" onclick="stopCapture()" disabled>⏹ Arrêter</button>
+
+      <div class="status-msg" id="cap-msg">En attente...</div>
+    </div>
+  </div>
+
+  <!-- ENTRAÎNEMENT -->
+  <div class="admin-card">
+    <div class="ph"><div class="ph-title">🧠 Entraînement du Modèle</div></div>
+    <div class="admin-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        Lance l'entraînement LBPH sur toutes les photos capturées. Le modèle est automatiquement rechargé sans redémarrer le système.
+      </p>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                  padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">État du modèle</div>
+        <div id="model-status" style="font-size:13px;font-weight:600">Chargement...</div>
+        <div id="model-personnes" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+
+      <button class="btn btn-blue" onclick="lancerTrain()">⚙️ Lancer l'entraînement</button>
+      <div class="status-msg" id="train-msg">En attente...</div>
+
+      <hr style="border-color:var(--border);margin:20px 0">
+
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        <strong>Workflow recommandé :</strong>
+      </p>
+      <div style="font-size:12px;color:var(--muted);line-height:2">
+        1️⃣ Onglet Capture → Enregistrer les visages<br>
+        2️⃣ Onglet Entraînement → Lancer train<br>
+        3️⃣ Revenir sur Dashboard → Tester la reconnaissance<br>
+        4️⃣ Alerte email → Répondre ACCEPTER/REFUSER Prénom
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── Tabs ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const pages = ['dashboard','admin'];
+    t.classList.toggle('active', pages[i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p =>
+    p.classList.toggle('active', p.id === 'page-'+name));
+}
+
+// ── Horloge ───────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clk').textContent = new Date().toLocaleTimeString('fr-FR');
+}, 1000);
+
+// ── Statuts ───────────────────────────────────────────────
+const STATUTS = {
+  autorise: {ico:'✅', lbl:'ACCÈS AUTORISÉ',  cls:'bg-auto'},
+  refuse:   {ico:'⛔', lbl:'ACCÈS REFUSÉ',    cls:'bg-ref'},
+  inconnu:  {ico:'❓', lbl:'VISAGE INCONNU',  cls:'bg-unk'},
+  attente:  {ico:'🔵', lbl:'Aucun visage',    cls:'bg-wait'},
+};
+const NOTIF_ICO = {success:'✅', danger:'❌', info:'ℹ️', warning:'⚠️'};
+
+// ── Dashboard polling ─────────────────────────────────────
+async function majStatus() {
+  try {
+    const d = await (await fetch('/api/status')).json();
+    const s = STATUTS[d.type] || STATUTS.attente;
+    document.getElementById('status-box').className = s.cls;
+    document.getElementById('s-ico').textContent   = s.ico;
+    document.getElementById('s-nom').textContent   = d.nom || 'En attente';
+    document.getElementById('s-type').textContent  = s.lbl;
+    document.getElementById('s-heure').textContent = d.heure || '--:--:--';
+  } catch(e) {}
+}
+
+async function majStats() {
+  try {
+    const s = await (await fetch('/api/stats')).json();
+    document.getElementById('s-tot').textContent  = s.total_tentatives;
+    document.getElementById('s-auth').textContent = s.autorises;
+    document.getElementById('s-den').textContent  = s.refuses;
+    document.getElementById('s-unk').textContent  = s.inconnus;
+  } catch(e) {}
+}
+
+async function majPersonnes() {
+  try {
+    const d = await (await fetch('/api/personnes')).json();
+    const mk = (arr,cls) => arr.length
+      ? arr.map(n=>`<span class="tag ${cls}">${n}</span>`).join('')
+      : '<span style="color:var(--muted);font-size:11px">Aucune</span>';
+    document.getElementById('list-auth').innerHTML = mk(d.autorisees,'a');
+    document.getElementById('list-den').innerHTML  = mk(d.refusees,'d');
+  } catch(e) {}
+}
+
+async function majNotifications() {
+  try {
+    const list = await (await fetch('/api/notifications')).json();
+    const el = document.getElementById('notif-list');
+    const empty = document.getElementById('notif-empty');
+    if (!list.length) { if(empty) empty.style.display='block'; return; }
+    if (empty) empty.style.display='none';
+    el.innerHTML = list.map(n=>`
+      <div class="notif-item ${n.type}">
+        <span style="font-size:16px">${NOTIF_ICO[n.type]||'🔔'}</span>
+        <div style="flex:1">
+          <div class="notif-titre">${n.titre}</div>
+          <div class="notif-corps">${n.corps}</div>
+        </div>
+        <span class="notif-heure">${n.heure}</span>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function clearNotifs() {
+  await fetch('/api/notifications/clear', {method:'POST'});
+  document.getElementById('notif-list').innerHTML =
+    '<div id="notif-empty" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Aucune notification.</div>';
+}
+
+async function majLogs() {
+  try {
+    const rows = await (await fetch('/api/logs')).json();
+    const tbl = document.getElementById('log-tbl');
+    const emp = document.getElementById('log-empty');
+    if (!rows.length) { tbl.style.display='none'; if(emp)emp.style.display='block'; return; }
+    tbl.style.display='table'; if(emp)emp.style.display='none';
+    document.getElementById('log-body').innerHTML = rows.map(r => {
+      const conf = r.confiance>0 ? Math.round(r.confiance)+'%' : '—';
+      const cls  = r.statut.replace(/[^A-Z_É]/g,'');
+      return `<tr>
+        <td style="color:var(--muted)">#${r.id}</td>
+        <td style="font-family:monospace;color:var(--muted)">${r.heure}</td>
+        <td style="font-weight:500">${r.nom}</td>
+        <td><span class="sbadge ${r.statut}">${r.statut}</span></td>
+        <td style="color:var(--muted)">${conf}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function majHealth() {
+  try {
+    const d = await (await fetch('/api/health',{signal:AbortSignal.timeout(3000)})).json();
+    document.getElementById('dot').className = 'on';
+    document.getElementById('srv').textContent = 'Connecté';
+    const ms = document.getElementById('model-status');
+    const mp = document.getElementById('model-personnes');
+    if (ms) {
+      ms.textContent = d.modele ? '✅ Modèle chargé' : '⚠️ Sans modèle';
+      ms.style.color = d.modele ? 'var(--green)' : 'var(--orange)';
+    }
+  } catch(e) {
+    document.getElementById('dot').className = 'off';
+    document.getElementById('srv').textContent = 'Déconnecté';
+  }
+}
+
+async function majPersonnesAdmin() {
+  try {
+    const d = await (await fetch('/api/personnes')).json();
+    const mp = document.getElementById('model-personnes');
+    if (mp) {
+      const all = [...d.autorisees.map(n=>`✅ ${n}`), ...d.refusees.map(n=>`⛔ ${n}`)];
+      mp.textContent = all.length ? all.join(' · ') : 'Aucune personne enregistrée';
+    }
+  } catch(e) {}
+}
+
+// ── Admin : Capture ───────────────────────────────────────
+let autoInterval = null;
+let autoActive   = false;
+
+async function startCapture() {
+  const nom  = document.getElementById('cap-nom').value.trim();
+  const type = document.getElementById('cap-type').value;
+  const obj  = parseInt(document.getElementById('cap-obj').value);
+  if (!nom) { setCapMsg('⚠ Entrez un nom.', 'warning'); return; }
+
+  try {
+    const r = await fetch('/api/admin/capture/start', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({nom, type, objectif: obj})
+    });
+    const d = await r.json();
+    if (!d.ok) { setCapMsg('✗ ' + d.msg, 'danger'); return; }
+    setCapMsg(`✅ ${d.msg}`, 'success');
+    document.getElementById('btn-start-cap').disabled = true;
+    document.getElementById('btn-snap').disabled      = false;
+    document.getElementById('btn-auto').disabled      = false;
+    document.getElementById('btn-stop-cap').disabled  = false;
+    document.getElementById('cap-progress-bar').style.display = 'block';
+    document.getElementById('cap-counter').style.display      = 'block';
+    updateCapProgress(0, obj);
+  } catch(e) { setCapMsg('✗ Erreur réseau', 'danger'); }
+}
+
+async function snapCapture() {
+  try {
+    const r = await fetch('/api/admin/capture/snap', {method:'POST'});
+    const d = await r.json();
+    setCapMsg((d.ok ? '📷 ' : '⚠ ') + d.msg, d.ok ? 'info' : 'warning');
+    if (d.ok) {
+      const obj = parseInt(document.getElementById('cap-obj').value);
+      updateCapProgress(d.compteur, obj);
+      if (d.termine) { stopCapture(true); }
+    }
+  } catch(e) { setCapMsg('✗ Erreur réseau', 'danger'); }
+}
+
+function toggleAuto() {
+  if (autoActive) {
+    clearInterval(autoInterval);
+    autoActive = false;
+    document.getElementById('btn-auto').textContent = '⏱ Auto-capture (1/s)';
+  } else {
+    autoActive = true;
+    document.getElementById('btn-auto').textContent = '⏸ Arrêter auto';
+    autoInterval = setInterval(snapCapture, 1200);
+  }
+}
+
+async function stopCapture(termine = false) {
+  if (autoActive) { clearInterval(autoInterval); autoActive = false; }
+  if (!termine) {
+    await fetch('/api/admin/capture/stop', {method:'POST'});
+  }
+  document.getElementById('btn-start-cap').disabled = false;
+  document.getElementById('btn-snap').disabled      = true;
+  document.getElementById('btn-auto').disabled      = true;
+  document.getElementById('btn-stop-cap').disabled  = true;
+  document.getElementById('btn-auto').textContent   = '⏱ Auto-capture (1/s)';
+  if (termine) setCapMsg('✅ Capture terminée ! Lancez l\'entraînement.', 'success');
+}
+
+function updateCapProgress(n, obj) {
+  const pct = Math.round((n/obj)*100);
+  document.getElementById('cap-fill').style.width = pct+'%';
+  document.getElementById('cap-counter').textContent = `${n} / ${obj} photos`;
+}
+
+function setCapMsg(msg, type) {
+  const el = document.getElementById('cap-msg');
+  const colors = {success:'var(--green)', danger:'var(--red)',
+                  info:'var(--blue)', warning:'var(--orange)'};
+  el.textContent = msg;
+  el.style.color = colors[type] || 'var(--muted)';
+}
+
+// ── Admin : Entraînement ──────────────────────────────────
+async function lancerTrain() {
+  const el = document.getElementById('train-msg');
+  el.textContent = '⚙️ Entraînement lancé...';
+  el.style.color = 'var(--blue)';
+  try {
+    const r = await fetch('/api/admin/train', {method:'POST'});
+    const d = await r.json();
+    el.textContent = d.ok ? '✅ ' + d.msg : '✗ ' + d.msg;
+    el.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+  } catch(e) {
+    el.textContent = '✗ Erreur réseau';
+    el.style.color = 'var(--red)';
+  }
+}
+
+// ── Stream reconnect ───────────────────────────────────────
+const streamEl = document.getElementById('stream');
+streamEl.onerror = () => setTimeout(() => { streamEl.src='/video_feed?'+Date.now(); }, 3000);
+
+// ── Polling ────────────────────────────────────────────────
+majHealth(); majStatus(); majStats(); majLogs(); majPersonnes();
+majNotifications(); majPersonnesAdmin();
+
+setInterval(majHealth,          10000);
+setInterval(majStatus,           1500);
+setInterval(majStats,            4000);
+setInterval(majLogs,             5000);
+setInterval(majPersonnes,       20000);
+setInterval(majPersonnesAdmin,  15000);
+setInterval(majNotifications,    3000);
+</script>
+</body>
+</html>

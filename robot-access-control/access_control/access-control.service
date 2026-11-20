@@ -1,0 +1,18 @@
+[Unit]
+Description=Systeme de Controle d'Acces par Reconnaissance Faciale
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/robot-access-control/access_control
+ExecStart=/usr/bin/python3 /home/pi/robot-access-control/access_control/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

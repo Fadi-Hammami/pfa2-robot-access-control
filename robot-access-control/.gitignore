@@ -1,0 +1,24 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Données biométriques (visages) et modèle entraîné : ne pas publier
+access_control/data/*
+!access_control/data/.gitkeep
+access_control/data/authorized/*
+access_control/data/denied/*
+access_control/models/*
+!access_control/models/.gitkeep
+access_control/logs/*
+!access_control/logs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Divers
+.DS_Store
+*.log

@@ -1,0 +1,17 @@
+[Unit]
+Description=Robot Bluetooth RC (L298N + HC-05)
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/robot-access-control/robot
+ExecStart=/usr/bin/python3 /home/pi/robot-access-control/robot/robot_v2.py
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

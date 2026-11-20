@@ -1,0 +1,215 @@
+==============================================================================
+ ROBOT MOBILE DE CONTROLE D'ACCES PAR RECONNAISSANCE FACIALE
+ Raspberry Pi 3B+ - OpenCV (LBPH) - Flask - L298N - Bluetooth HC-05
+==============================================================================
+ Auteur      : Fadi Hammemi
+ Etablissement : ENIT (Ecole Nationale d'Ingenieurs de Tunis)
+ Cadre       : Projet de Fin d'Annee (PFA 2) - 2eme annee TEL2 - Dpt TIC
+ Annee       : 2024/2025
+
+
+1. PRESENTATION
+------------------------------------------------------------------------------
+Dans un couloir comportant plusieurs laboratoires, installer un systeme de
+controle d'acces sur chaque porte coute cher et les badges ou codes peuvent
+etre perdus, voles ou prets. Ce projet remplace plusieurs dispositifs fixes
+par UN SEUL ROBOT MOBILE qui identifie les personnes par leur visage.
+
+Le projet comporte deux parties qui fonctionnent ensemble sur le meme
+Raspberry Pi :
+
+  A. Le controle d'acces par reconnaissance faciale  (dossier access_control/)
+  B. La mobilite du robot, pilotee en Bluetooth       (dossier robot/)
+
+
+2. FONCTIONNEMENT DU CONTROLE D'ACCES
+------------------------------------------------------------------------------
+La camera Pi filme en continu. Pour chaque visage detecte (Haar Cascade),
+l'algorithme LBPH calcule un score de confiance (0 = identique, 100 = tres
+different). Un stabilisateur par vote (6 votes, 60 % d'accord minimum)
+evite les fausses decisions dues a une seule image instable.
+
+Decision en trois etapes, avec un seuil de 65 :
+
+  A. REFUSE   : confiance < 65 et personne dans la liste des refuses
+                -> cadre ROUGE   "REFUSE : nom"
+  B. AUTORISE : confiance < 65 et personne non refusee
+                -> cadre VERT    "nom XX %"
+  C. INCONNU  : confiance >= 65
+                -> cadre ORANGE  + alerte email automatique
+
+Cycle de l'alerte email (mise a jour en temps reel, sans redemarrage) :
+  1. Le visage inconnu est photographie et envoye par email a l'administrateur.
+  2. L'administrateur repond :  ACCEPTER Prenom   ou   REFUSER Prenom
+  3. Le systeme lit la reponse (IMAP, toutes les 20 s), copie la photo dans
+     data/authorized/authorized_temp/ ou data/denied/denied_temp/ (nom donne
+     par l'admin) et met a jour le modele en memoire (recognizer.update).
+  4. Le flux video passe de orange a vert ou rouge en quelques secondes.
+  5. Un email de confirmation est renvoye a l'administrateur.
+
+
+3. FONCTIONNEMENT DU ROBOT
+------------------------------------------------------------------------------
+robot/robot_v2.py lit les commandes Bluetooth (module HC-05, port serie
+/dev/ttyAMA0, 9600 bauds) envoyees par l'application Android
+"Bluetooth RC Controller" et commande le driver L298N par 4 broches GPIO.
+
+  Commande   Mouvement                 Commande   Mouvement
+  --------   ----------------------    --------   ----------------------
+  F          Avancer                   G          Virage avant-gauche
+  B          Reculer                   I          Virage avant-droit
+  L          Pivot gauche              H          Virage arriere-gauche
+  R          Pivot droit               J          Virage arriere-droit
+  S ou 0     Arret
+
+  Securite (watchdog) : arret automatique des moteurs si aucune commande
+  n'est recue pendant 3 secondes (par exemple en cas de perte Bluetooth).
+
+  Branchement L298N (numerotation BCM) :
+     GPIO 17 -> IN1   (moteur gauche)      GPIO 22 -> IN3  (moteur droit)
+     GPIO 18 -> IN2   (moteur gauche)      GPIO 23 -> IN4  (moteur droit)
+  Les moteurs sont alimentes separement (4 piles AA) : le port USB du
+  Raspberry Pi ne fournit pas assez de courant.
+
+
+4. ARCHITECTURE LOGICIELLE (app.py)
+------------------------------------------------------------------------------
+Quatre threads independants :
+  Thread 1  Capture         Picamera2, 640x480, 30 FPS  -> raw_frame
+  Thread 2  Reconnaissance  Haar + LBPH + stabilisateur -> ann_frame
+  Thread 3  Stream MJPEG    ann_frame -> navigateur (~20 FPS)
+  Thread 4  Email poll      lecture des reponses de l'admin (IMAP)
+
+Le modele (recognizer, labels, liste des refuses) est partage entre les
+threads et protege par un seul verrou (_model_lock) : le thread email le
+modifie directement, le thread de reconnaissance le relit a chaque cycle.
+
+Tableau de bord web (Flask, port 5000) :
+  - onglet Dashboard      : flux video, derniere decision, statistiques,
+                            journal des acces (SQLite), notifications
+  - onglet Administration : capture de visages sans ecran, lancement de
+                            l'entrainement depuis le navigateur
+
+
+5. MATERIEL
+------------------------------------------------------------------------------
+  - Raspberry Pi 3B+ (ARM 1,4 GHz, 1 Go RAM, Wi-Fi), carte microSD 32 Go
+  - Camera Pi v2 (Sony IMX219, 8 MP), utilisee en 640x480
+  - Driver moteur L298N (double pont en H)
+  - 2 moteurs DC 3-6 V + chassis 2 roues + 1 roue folle
+  - Module Bluetooth HC-05
+  - Mini breadboard 170 points + fils dupont
+  - LED RGB (indication visuelle locale)
+  - Power bank 5 V / 10000 mAh (Raspberry Pi) + 4 piles AA (moteurs)
+
+
+6. ARBORESCENCE DU DEPOT
+------------------------------------------------------------------------------
+  robot-access-control/
+  |-- DESCRIPTION.txt              ce fichier
+  |-- requirements.txt             dependances Python
+  |-- .gitignore                   exclut .env, visages et modele
+  |-- access_control/
+  |   |-- app.py                   application principale (threads + Flask)
+  |   |-- capture.py               capture des visages (50 photos/personne)
+  |   |-- train.py                 entrainement du modele LBPH
+  |   |-- setup.sh                 installation des dependances (une fois)
+  |   |-- install_service.sh       demarrage automatique (systemd)
+  |   |-- access-control.service   modele du service systemd
+  |   |-- .env.example             modele de configuration email
+  |   |-- templates/dashboard.html interface web
+  |   |-- data/                    photos (creees localement, non publiees)
+  |   |-- models/                  model.yml, labels.pkl (non publies)
+  |   `-- logs/                    access.db, system.log (non publies)
+  `-- robot/
+      |-- robot_v2.py              pilotage moteurs par Bluetooth
+      |-- robot.service            modele du service systemd
+      `-- install_robot_service.sh demarrage automatique du robot
+
+
+7. INSTALLATION (sur le Raspberry Pi)
+------------------------------------------------------------------------------
+  1) Flasher Raspberry Pi OS sur la carte SD (Raspberry Pi Imager).
+  2) Activer la camera et le port serie :   sudo raspi-config
+       - Interface Options > Camera : activer
+       - Interface Options > Serial Port : console serie NON, materiel serie OUI
+     puis redemarrer.
+  3) Recuperer le projet et installer les dependances :
+       git clone <url-du-depot>
+       cd robot-access-control/access_control
+       bash setup.sh
+       pip install -r ../requirements.txt --break-system-packages
+  4) Configurer l'email :
+       cp .env.example .env
+       nano .env            (adresse Gmail + mot de passe d'application)
+  5) Construire la base de visages puis entrainer :
+       python3 capture.py   (50 photos par personne, autorisee ou refusee)
+       python3 train.py
+  6) Lancer le systeme :
+       python3 app.py
+     Tableau de bord : http://<IP-du-Raspberry>:5000
+
+
+8. DEMARRAGE AUTOMATIQUE (systemd)
+------------------------------------------------------------------------------
+  Controle d'acces :  cd access_control && bash install_service.sh
+  Robot            :  cd robot && bash install_robot_service.sh
+
+  Commandes utiles :
+    sudo systemctl status  access-control
+    sudo systemctl restart access-control
+    sudo journalctl -u access-control -f
+    sudo systemctl status  robot
+    sudo journalctl -u robot -f
+
+
+9. CONFIGURATION
+------------------------------------------------------------------------------
+  Email (fichier .env, jamais publie) :
+    EMAIL_SENDER      adresse Gmail expediteur / boite surveillee
+    EMAIL_PASSWORD    mot de passe d'application Gmail (16 caracteres)
+    EMAIL_RECIPIENT   adresse qui recoit les alertes
+
+  Parametres de reconnaissance (dictionnaire CFG dans app.py) :
+    seuil 65          augmenter si une personne connue est vue "inconnue",
+                      diminuer si un inconnu est reconnu a tort
+    votes 6, ratio 0.60, min_votes 3     reglage du stabilisateur
+    email_poll_sec 20                    frequence de lecture des reponses
+    delai_alerte_min 4                   delai minimum entre deux alertes
+
+
+10. RESULTATS DES TESTS
+------------------------------------------------------------------------------
+  Huit scenarios valides : autorise (vert), refuse (rouge), inconnu (orange),
+  inconnu accepte par email, inconnu refuse par email, aucun visage, ajout
+  d'une personne via le tableau de bord, redemarrage automatique.
+
+    Flux video navigateur ........ 20 a 23 FPS
+    Decision de reconnaissance ... 0,8 a 1,5 s
+    Reception de l'alerte email .. 5 a 25 s
+    Mise a jour apres reponse .... moins de 30 s
+    Demarrage automatique ........ environ 60 s
+    Entrainement (2 x 50 photos) . environ 35 s
+
+
+11. LIMITES ET PERSPECTIVES
+------------------------------------------------------------------------------
+  Limites : deplacement entierement commande en Bluetooth (pas de capteur
+  d'obstacles), Raspberry Pi 3B+ trop limite pour le Deep Learning,
+  autonomie d'environ 3 h sur power bank.
+
+  Perspectives : capteurs ultrasons et navigation autonome, serrure
+  electromagnetique (relais GPIO), Deep Learning (MobileNet / TensorFlow
+  Lite), detection anti-usurpation (photo/ecran), notifications Telegram,
+  deploiement de plusieurs robots.
+
+
+12. SECURITE ET DONNEES PERSONNELLES
+------------------------------------------------------------------------------
+  - Les identifiants email sont lus dans .env : ne jamais les ecrire dans le
+    code ni les publier.
+  - Les photos de visages sont des donnees biometriques : elles restent en
+    local (exclues du depot par .gitignore). Obtenir le consentement des
+    personnes enregistrees.
+  - L'acces au tableau de bord n'est pas protege par mot de passe : l'utiliser
+    uniquement sur un reseau local de confiance.
